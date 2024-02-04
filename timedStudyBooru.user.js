@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         timedStudyBooru
 // @namespace    http://tampermonkey.net/
-// @version      2024-02-3.2
+// @version      2024-02-4
 // @description  lazy random image timer tampermonkey edition
 // @author       Izuthree
 // @match        https://danbooru.donmai.us/posts/*
@@ -69,6 +69,7 @@ $(window).ready(function(){
 
     //weird but prevents it flickering enabled then disabling
     $('body').addClass('studyModeActive');
+    if(improvDelay=='0'&&improvPractice&&enabled){$('.image-container').addClass('improvToggle');}
     if(!toggled){$('.studymode').prop('disabled',true);}
 
     //if any properties are true, apply them immediately
@@ -157,7 +158,7 @@ function countdown(){
                $('.image-container').addClass('improvToggle'); $('.timer').html(timeout);
         }
         //if timer is less than 15 seconds, unblur the image to review versus the reference
-        if(timeout<=15 && improvPractice==true){$('.image-container').removeClass('improvToggle');}
+        if(timeout<=15 && improvPractice==true && improvDelay!=0){$('.image-container').removeClass('improvToggle');}
     }
 }
 
