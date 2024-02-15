@@ -11,8 +11,8 @@
 // @require      https://code.jquery.com/jquery-3.6.0.min.js
 // @grant        GM_getValue
 // @grant        GM_setValue
-// @downloadURL https://github.com/Izu-3/Izusrandomcodesnippets/raw/main/timedStudyBooru.user.js
-// @updateURL https://github.com/Izu-3/Izusrandomcodesnippets/raw/main/timedStudyBooru.user.js
+// @downloadURL https://update.greasyfork.org/scripts/485413/timedStudyBooru.user.js
+// @updateURL https://update.greasyfork.org/scripts/485413/timedStudyBooru.meta.js
 // ==/UserScript==
 
 /*
@@ -40,7 +40,7 @@ let splitTimer = GM_getValue('splitTimer');
 let minimalUI = GM_getValue('minimalUI');
 let history = GM_getValue('history');
 let historyToggle = GM_getValue('historyToggle');
-let historyLimit = GM_getValue('historyLimit');
+let historyLimit = parseInt(GM_getValue('historyLimit'));
 let extraBlacklist = GM_getValue('extraBlacklist');
 let countdownTimer;
 let countupTimer;
