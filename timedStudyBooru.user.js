@@ -25,22 +25,22 @@ todo:
 let domain = window.location.hostname;
 //temp overhaul var
 let studyTopics = GM_getValue('studyTopics');
-let fullTimer = parseInt(GM_getValue('studyTimer'));
-let timeout = parseInt(GM_getValue('studyTimer'));
+let fullTimer = GM_getValue('studyTimer');
+let timeout = GM_getValue('studyTimer');
 let enabled = GM_getValue('enabled');
 let toggled = GM_getValue('exerciseVisible');
 let multiPart = GM_getValue('multiPart');
 let improvPractice = GM_getValue('improvPractice');
 let improvDelay = GM_getValue('improvDelay');
-let restDelay = parseInt(GM_getValue('restDelay'));
+let restDelay = GM_getValue('restDelay');
 let randomFlip = GM_getValue('randomFlip');
-let setLength = parseInt(GM_getValue('setLength'));
+let setLength = GM_getValue('setLength');
 let countupMode = GM_getValue('countupMode');
 let splitTimer = GM_getValue('splitTimer');
 let minimalUI = GM_getValue('minimalUI');
 let history = GM_getValue('history');
 let historyToggle = GM_getValue('historyToggle');
-let historyLimit = parseInt(GM_getValue('historyLimit'));
+let historyLimit = GM_getValue('historyLimit');
 let extraBlacklist = GM_getValue('extraBlacklist');
 let countdownTimer;
 let countupTimer;
@@ -83,7 +83,7 @@ $(window).ready(function(){
     if(history==undefined){history = []};
     if(historyLimit==undefined){historyLimit=10}
     if(historyToggle==undefined){historyToggle=false}
-
+console.log(fullTimer);
     //embed stuff after you fixed for defaults not before dumbass
     embeds();
 
