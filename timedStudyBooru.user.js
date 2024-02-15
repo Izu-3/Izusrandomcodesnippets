@@ -58,7 +58,6 @@ $(window).ready(function(){
 
     //skip immediately if blacklisted, upgrade needed or removed and the script is active
     let params = [$(imgContainer).find("[href*='/upgrade']").length,$('#blacklist-list>li').length,$('#page>p').length,$('#page>p').find('takedown request.').length];
-    console.log(params);
     for(let i=0;i<params.length;i++){
         if(params[i]>0){
             skipMe[1]=true;
@@ -171,7 +170,6 @@ function startStudying(){
 
 function parseHistory(){
 for(let i=history.length-1;i>=0;i--){
-    console.log(history[i]);
     $('.historyItems').append('<a href="'+history[i][0]+'" style="background-image:url('+history[i][1]+')" /a>');
 }
 }
