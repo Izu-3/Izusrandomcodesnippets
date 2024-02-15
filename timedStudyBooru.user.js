@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         timedStudyBooru
 // @namespace    http://tampermonkey.net/
-// @version      2024-02-15b
+// @version      2024-02-15.1b
 // @description  lazy random image timer tampermonkey edition
 // @author       Izuthree
 // @match        https://danbooru.donmai.us/posts/*
