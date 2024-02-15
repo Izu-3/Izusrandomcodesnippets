@@ -313,7 +313,7 @@ $('.timedBooruStudy').append("<div class='historyContainer'><div class='historyH
 
 $('body').append("<div class='showHideStudy'><p>Enable Study Mode</p></div>");
 $('body').append("<style>.panicbutton{opacity:0;!important}</style>");
-$('body').append("<style class='studymode'>\
+$('body').append("<style class=''>\
 @import url('https://fonts.googleapis.com/css2?family=Righteous&display=swap');\
 .studyModeActive .image-container{position:fixed;top:0!important;left:0;width:100vw;height:100vh!important;background:black;margin:0!important;z-index:100;}\
 .studyModeActive .image-container>picture{display:flex!important;width:100vw!important;height:100vh!important;}\
