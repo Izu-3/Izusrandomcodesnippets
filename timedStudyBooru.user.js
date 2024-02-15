@@ -69,19 +69,19 @@ $(window).ready(function(){
     //if any undefined assume first run and get/set defaults
     if(enabled==undefined){enabled = false;}
     if(studyTopics==undefined){studyTopics = [['order:rank',true],['test',false]];}
-    if(fullTimer==undefined){fullTimer = 150; timeout = 150;}
+    if(fullTimer==undefined || fullTimer==NaN){fullTimer = 150; timeout = 150;}
     if(toggled==undefined){toggled = false;}
     if(multiPart==undefined){multiPart = false;}
     if(improvPractice==undefined){improvPractice = false;}
-    if(improvDelay==undefined){improvDelay=15};
-    if(restDelay==undefined){restDelay=0};
+    if(improvDelay==undefined || improvDelay==NaN){improvDelay=15};
+    if(restDelay==undefined || restDelay==NaN){restDelay=0};
     if(randomFlip==undefined){randomFlip=false;};
-    if(setLength==undefined){setLength=-1;};
+    if(setLength==undefined || setLength==NaN){setLength=-1;};
     if(countupMode==undefined){countupMode=false};
     if(splitTimer==undefined){splitTimer=false};
     if(minimalUI==undefined){minimalUI=true};
     if(history==undefined){history = []};
-    if(historyLimit==undefined){historyLimit=10}
+    if(historyLimit==undefined || historyLimit==NaN){historyLimit=10}
     if(historyToggle==undefined){historyToggle=false}
 console.log(fullTimer);
     //embed stuff after you fixed for defaults not before dumbass
