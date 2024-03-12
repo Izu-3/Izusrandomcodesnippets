@@ -192,9 +192,7 @@ function changeImage(skipped){
     if(domain=="gelbooru.com"){
         let searchTerm ="index.php?page=post&s=list&tags=sort%3arandom+"+possibleTopics[Math.floor(Math.random()*possibleTopics.length)];
         $('.dummy').load(searchTerm, function(data) {
-            var content = $('.dummy').append(data).find('.thumbnail-container a');
-            content = ($(content[0]).attr('href'));
-            window.location.href = content;
+            window.location.href = $($(data).find('.thumbnail-container a')[0]).attr('href');
         })}
     else{
     window.location.href = "https://"+domain+"/posts/random?tags="+possibleTopics[Math.floor(Math.random()*possibleTopics.length)];
