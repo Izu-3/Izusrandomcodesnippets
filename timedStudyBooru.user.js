@@ -1,22 +1,27 @@
 // ==UserScript==
 // @name         timedStudyBooru
 // @namespace    http://tampermonkey.net/
-// @version      2024-02-15.7
+// @version      2024-03-12.1
 // @description  lazy random image timer tampermonkey edition
 // @author       Izuthree
 // @match        https://danbooru.donmai.us/posts/*
 // @match        https://safebooru.donmai.us/posts/*
 // @match        https://e621.net/posts/*
+// @match        https://gelbooru.com/index.php?page=post*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=donmai.us
 // @require      https://code.jquery.com/jquery-3.6.0.min.js
 // @grant        GM_getValue
 // @grant        GM_setValue
-// @downloadURL https://github.com/Izu-3/Izusrandomcodesnippets/raw/main/timedStudyBooru.user.js
-// @updateURL https://github.com/Izu-3/Izusrandomcodesnippets/raw/main/timedStudyBooru.user.js
+// @downloadURL https://update.greasyfork.org/scripts/485413/timedStudyBooru.user.js
+// @updateURL https://update.greasyfork.org/scripts/485413/timedStudyBooru.meta.js
 // ==/UserScript==
 
-/*
-THIS IS AN ONLY MILDLY TESTED NEW VERSION AND THINGS MIGHT BREAK
+/* 24-03-10
+fixed toggle states, forced non-toggled save state to be disabled
+use domain as localstorage value for site-specific lists
+fixed history fetching invalid smaller images (this makes the feature more expensive)
+unblur improv mode is now tied to rest period, 0 rest means it won't unblur
+cleaned up the mess of defaults because lol ?? exists
 */
 
 /*
@@ -27,90 +32,47 @@ todo:
 
 
 let domain = window.location.hostname;
-//temp overhaul var
-let studyTopics = GM_getValue('studyTopics');
-let fullTimer = GM_getValue('studyTimer');
-let timeout = GM_getValue('studyTimer');
-let enabled = GM_getValue('enabled');
-let toggled = GM_getValue('exerciseVisible');
-let multiPart = GM_getValue('multiPart');
-let improvPractice = GM_getValue('improvPractice');
-let improvDelay = GM_getValue('improvDelay');
-let restDelay = GM_getValue('restDelay');
-let randomFlip = GM_getValue('randomFlip');
-let setLength = GM_getValue('setLength');
-let countupMode = GM_getValue('countupMode');
-let splitTimer = GM_getValue('splitTimer');
-let minimalUI = GM_getValue('minimalUI');
-let history = GM_getValue('history');
-let historyToggle = GM_getValue('historyToggle');
-let historyLimit = GM_getValue('historyLimit');
-let extraBlacklist = GM_getValue('extraBlacklist');
+let studyTopics = GM_getValue(domain) ?? [['order:rank',true]];
+let fullTimer = GM_getValue('studyTimer') ?? 150;
+let timeout = GM_getValue('studyTimer') ?? 150;
+let enabled = GM_getValue('enabled') ?? false;
+let toggled = GM_getValue('exerciseVisible') ?? false;
+let multiPart = GM_getValue('multiPart') ?? false;
+let improvPractice = GM_getValue('improvPractice') ?? false;
+let improvDelay = GM_getValue('improvDelay') ?? 0;
+let restDelay = GM_getValue('restDelay') ?? 0;
+let randomFlip = GM_getValue('randomFlip') ?? false;
+let setLength = GM_getValue('setLength') ?? -1;
+let countupMode = GM_getValue('countupMode') ?? false;
+let splitTimer = GM_getValue('splitTimer') ?? false;
+let minimalUI = GM_getValue('minimalUI') ?? false;
+let history = GM_getValue('history') ?? [];
+let historyToggle = GM_getValue('historyToggle') ?? false;
+let historyLimit = GM_getValue('historyLimit') ?? 0;
+let extraBlacklist = GM_getValue('extraBlacklist'); //currently unused
 let countdownTimer;
 let countupTimer;
 let countupTime = 0;
 let imgContainer;
-let skipMe = [false,false];
+let skipMe = false;
 
 const $ = window.jQuery; //im lazy
+embeds();
 
 $(window).ready(function(){
     //some sites have image-container as an id, some have it as a class
-    //easiest way to fix this is just have the element as a jquery variable
-    if($('#image-container').length>0){imgContainer=$('#image-container');}
-    else{imgContainer=$('.image-container');}
+    //easiest way to fix this is just have the element as a jquery variable, has to be fetched on .ready
+    if($('#image-container').length>0){imgContainer=$('#image-container');}else{imgContainer=$('.image-container');}
 
     //skip immediately if blacklisted, upgrade needed or removed and the script is active
-    let params = [$(imgContainer).find("[href*='/upgrade']").length,$('#blacklist-list>li').length,$('#page>p').length,$('#page>p').find('takedown request.').length];
-    for(let i=0;i<params.length;i++){
-        if(params[i]>0){
-            skipMe[1]=true;
-            if(enabled){skipMe[0]=true;}
-        }
-    }
-    if(skipMe[0]){changeImage(true);}
-    else{
-    //if any undefined assume first run and get/set defaults
-    if(enabled==undefined){enabled = false;}
-    if(studyTopics==undefined){studyTopics = [['order:rank',true]];}
-    if(fullTimer==undefined || fullTimer==NaN){fullTimer = 150; timeout = 150;}
-    if(toggled==undefined){toggled = false;}
-    if(multiPart==undefined){multiPart = false;}
-    if(improvPractice==undefined){improvPractice = false;}
-    if(improvDelay==undefined || improvDelay==NaN){improvDelay=15};
-    if(restDelay==undefined || restDelay==NaN){restDelay=0};
-    if(randomFlip==undefined){randomFlip=false;};
-    if(setLength==undefined || setLength==NaN){setLength=-1;};
-    if(countupMode==undefined){countupMode=false};
-    if(splitTimer==undefined){splitTimer=false};
-    if(minimalUI==undefined){minimalUI=true};
-    if(history==undefined){history = []};
-    if(historyLimit==undefined || historyLimit==NaN){historyLimit=10}
-    if(historyToggle==undefined){historyToggle=false}
-    //embed stuff after you fixed for defaults not before dumbass
-    embeds();
+    let params = [$(imgContainer).find("[href*='/upgrade']").length,$('#blacklist-list>li').length];
+    for(let i=0;i<params.length;i++){//check if specified parameters are true
+        if(params[i]>0){skipMe[1]=true;}//notify of skip if they are
+            if(enabled){changeImage(true)}}//but only actually skip if enabled is true
 
-    //weird but prevents it flickering enabled then disabling
-    $('body').addClass('studyModeActive');
-    if(improvDelay=='0'&&improvPractice&&enabled){$(imgContainer).addClass('improvToggle');}
-    if(!toggled){$('.studymode').prop('disabled',true);}
+    //handle listeners regardless of state
+    $('.showHideStudy').click(function(){$('body').toggleClass('studyModeActive');$('.studyContainer').removeClass('timerRunning');enabled=false;toggled=!toggled;$('.studymode').prop('disabled',!$('.studymode').prop('disabled')); setValues();});
 
-    //if any properties are true, apply them immediately
-    if(multiPart){$('.multiPartMode').toggleClass('dialogInactive');}
-    if(minimalUI){$('.minimalUI').toggleClass('dialogInactive');$('.studyContainer').toggleClass('lessUI');}
-    if(improvPractice){$('.improvMode').toggleClass('dialogInactive');}
-    if(countupMode){$('.countupToggle').toggleClass('dialogInactive');updateTimer(countupTime);}
-    if(historyToggle){$('.addSkips').toggleClass('dialogInactive');}
-    if (randomFlip==true){
-        $('.randomHorizontal').toggleClass('dialogInactive');
-        if(Math.floor(Math.random()*100)>50){
-            $('.horizontalFlip').toggleClass('dialogInactive');
-            $(imgContainer).toggleClass('horFlipped');
-        }
-    }
-console.log(historyLimit);
-    //click and input handlers
-    //study button click handler
     $('.studyButton').click(function(){startStudying()});
     $('.skipButton').click(function(){changeImage(true)});
     $(".multiPartMode").click(function(){multiPart = !multiPart; $('.multiPartMode').toggleClass('dialogInactive');setValues()});
@@ -121,7 +83,6 @@ console.log(historyLimit);
     $(".grayscaleToggle").click(function(){$('.grayscaleToggle').toggleClass('dialogInactive');$(imgContainer).toggleClass('multiPartToggle');});
     $(".countupToggle").click(function(){if(!enabled){countupLazy()}});
     $(".timer").click(function() {splitTimer=!splitTimer;if(countupTimer){updateTimer(countupTime)};if(!countupTimer){updateTimer(timeout)}});
-    $('.showHideStudy').click(function(){$('body').toggleClass('studyModeActive'); enabled=false; setValues();$('.studymode').prop('disabled',!$('.studymode').prop('disabled'));toggled = !$('.studymode').prop('disabled'); GM_setValue('exerciseVisible',toggled);});
     $('.searchTermSave').click(function(){setValues();})
     $('.showSearchTerms').click(function(){$('.searchTermMenus').toggleClass('searchTermsInvisible');$('.showSearchTerms').toggleClass('dialogInactive');});
     $('.searchTermAddOption').click(function(){addStudyOption('Study Option','true');})
@@ -138,32 +99,40 @@ console.log(historyLimit);
     $(".improvDelay").on("input", function() {improvDelay = parseInt($('.improvDelay')[0].value); let aa = $('.improvDelay')[0]; $(aa).attr('value',improvDelay); setValues();});
     $(".setLength").on("input", function() {setLength = parseInt($('.setLength')[0].value); let aa = $('.setLength')[0];$(aa).attr('value',setLength); setValues();});
     $('.historySize').on('input',function(){historyLimit = parseInt($('.historySize')[0].value); let aa = $('.historySize')[0];$(aa).attr('value',historyLimit); setValues();})
+
+
+
+    if(!toggled){$('.studymode').prop('disabled',true); enabled=false;} //script hidden if toggled off
+    else{
+    $('body').addClass('studyModeActive')
+    //if any properties are true, apply them immediately
+    if(multiPart){$('.multiPartMode').toggleClass('dialogInactive');}
+    if(improvDelay=='0'&&improvPractice&&enabled){$(imgContainer).addClass('improvToggle');}
+    if(minimalUI){$('.minimalUI').toggleClass('dialogInactive');$('.studyContainer').toggleClass('lessUI');}
+    if(improvPractice){$('.improvMode').toggleClass('dialogInactive');}
+    if(countupMode){$('.countupToggle').toggleClass('dialogInactive');updateTimer(countupTime);}
+    if(historyToggle){$('.addSkips').toggleClass('dialogInactive');}
+    if (randomFlip==true){
+        $('.randomHorizontal').toggleClass('dialogInactive');
+        if(Math.floor(Math.random()*100)>50){
+            $('.horizontalFlip').toggleClass('dialogInactive');
+            $(imgContainer).toggleClass('horFlipped');
+        }
     }
-    //
+    }});
 
-});
-
-//Run when all images/contents are loaded
+//Run when all images/contents are loaded so you don't lose time while it's still loading
 $(window).on("load", function() {
-    console.log(enabled);
-    if (enabled==true) {
+    if (enabled&&toggled) {
        $('.studyContainer').addClass('timerRunning');
-       enabled = !enabled;startStudying();
+       enabled=!enabled; //hack to account for startStudying flipping it
+       startStudying();
     }
 });
-
-//lol lmao
-function countupLazy(){
-        $('.countupToggle').toggleClass('dialogInactive');
-        countupMode = !countupMode;
-        if(countupMode==false){updateTimer(fullTimer);}
-        if(countupMode==true){updateTimer(countupTime);}
-}
 
 function startStudying(){
     enabled = !enabled;
-    if(enabled==true){
-        console.log(enabled);
+    if(enabled){
         if(countupMode==false){countdownTimer = setInterval(countdown, 1000); }
         if(countupMode==true){countupTime=0; updateTimer(countupTime); countupTimer = setInterval(countup, 1000);}
         $('.studyContainer').addClass('timerRunning');
@@ -184,18 +153,20 @@ for(let i=history.length-1;i>=0;i--){
 //set localstorage variables
 //super lazy to set them all at once in a big function but I can't be arsed to make this more elegant
 function setValues(){
-    //reset timeout means you can't pause and resume but I don't care to fix this rn
-    timeout = parseInt($('.studyTimer')[0].value);
-    GM_setValue('exerciseVisible',toggled);
+    //recreate studytopics from the UI to save into an array
     studyTopics = [];
     let searchTerms = $('.searchTermOption');
     let delList = [];
     for(let i=0;i<searchTerms.length;i++){
     if($(searchTerms[i]).children('.studyTopicOption').val()!=''){studyTopics.push(new Array($(searchTerms[i]).children('.studyTopicOption').val(),$(searchTerms[i]).children('.studyTopicOption').attr('enabled')));}}
+    GM_setValue(domain,studyTopics); //study topics uses the domain name as a variable name
 
-    GM_setValue('studyTopics',studyTopics);
-    fullTimer = parseInt($('.studyTimer')[0].value);
-    GM_setValue('studyTimer',$('.studyTimer')[0].value);
+    timeout = parseInt($('.studyTimer')[0].value); //reset timeout means you can't pause and resume, fixme when changing from shit timer
+    fullTimer = parseInt($('.studyTimer')[0].value); //parse this now so the saved value is correct
+    GM_setValue('studyTimer',fullTimer);
+
+    //regular vars
+    GM_setValue('exerciseVisible',toggled);
     GM_setValue('multiPart',multiPart);
     GM_setValue('improvDelay',$('.improvDelay')[0].value);
     GM_setValue('restDelay',$('.restTimer')[0].value);
@@ -212,23 +183,32 @@ function setValues(){
 }
 
 function changeImage(skipped){
+    if(skipped==undefined){skipped=false};
     if(skipped && historyToggle && !skipMe[1]){addHistory();}
     else if(!skipped){addHistory();}
-    setValues();
-    let tempSearchTerm = $('.studyTopicOption:not([enabled="false"])');
-    window.location.href = "https://"+domain+"/posts/random?tags="+$(tempSearchTerm[Math.floor(Math.random()*tempSearchTerm.length)]).val();
-}
+    if(!skipMe[0]){setValues();}
+    let possibleTopics = [];
+    for(let i=0;i<studyTopics.length;i++){if(studyTopics[i][1]=='true'){possibleTopics.push(studyTopics[i][0]);}}
+    if(domain=="gelbooru.com"){
+        let searchTerm ="index.php?page=post&s=list&tags=sort%3arandom+"+possibleTopics[Math.floor(Math.random()*possibleTopics.length)];
+        $('.dummy').load(searchTerm, function(data) {
+            var content = $('.dummy').append(data).find('.thumbnail-container a');
+            content = ($(content[0]).attr('href'));
+            window.location.href = content;
+        })}
+    else{
+    window.location.href = "https://"+domain+"/posts/random?tags="+possibleTopics[Math.floor(Math.random()*possibleTopics.length)];
+
+}}
 
 function addHistory(){
-    if(history.length==(historyLimit) && historyLimit!=-1){history.shift()};
-    let sampleLink; if($('.image-view-large-link').length>0){sampleLink=$('.image-view-large-link').attr('href');}
-    else{sampleLink=$(imgContainer).attr('data-large-file-url');}
-    history.push([window.location.href,sampleLink]);
-}
-
-function countup(){
-    countupTime++;
-    updateTimer(countupTime);
+    if(historyLimit!=0){
+        if(history.length==(historyLimit) && historyLimit!=-1){history.shift()};
+        let sampleLink;
+        if($('.image-view-large-link').length>0){sampleLink=$('.image-view-large-link').attr('href');}
+        else{sampleLink=$('#post-info-size a').attr('href');}
+        history.push([window.location.href,sampleLink]);
+    }
 }
 
 function updateTimer(time){
@@ -244,32 +224,38 @@ function updateTimer(time){
 //shitty countdown but it does its job enough:tm:
 function countdown(){
     if(enabled){
-        timeout--;
-        if(timeout>-1){updateTimer(timeout);}
-        if(timeout < 1){
-            $('.timer').html("Resting...");
-            $('.timer').addClass('timerRest');
+        if(timeout>-1){
+            timeout--;
+            //apply multiPart when timer is at 1/2, apply improvDelay when timeout is <= the variable
+            if(timeout<=(fullTimer/2) && multiPart==true && $(imgContainer).hasClass('multiPartToggle')==false){$(imgContainer).addClass('multiPartToggle'); updateTimer(timeout);}
+            if(timeout<=improvDelay && improvPractice==true && $(imgContainer).hasClass('improvToggle')==false){$(imgContainer).addClass('improvToggle'); updateTimer(timeout);}
+            updateTimer(timeout);}
+        else{
             clearInterval(countdownTimer);
-            if(setLength>0){setLength--; ($('.setLength')[0].value) = setLength}
-            if(setLength!=0){setTimeout(changeImage, (restDelay*1000));}
-                       }
-        if(timeout<=(fullTimer/2) && multiPart==true && $(imgContainer).hasClass('multiPartToggle')==false){
-               $(imgContainer).addClass('multiPartToggle'); updateTimer(timeout);
-        }
-        //if session length is less than 15s, disable it
-        //after improvDelay elapsed, blur the image
-        //only if timer is more than 15 seconds
-        if(fullTimer>15 && timeout<=(fullTimer-improvDelay) && timeout>15 && improvPractice==true && $(imgContainer).hasClass('improvToggle')==false){
-               $(imgContainer).addClass('improvToggle'); updateTimer(timeout);
-        }
-        //if timer is less than 15 seconds, unblur the image to review versus the reference
-        if(timeout<=15 && improvPractice==true && improvDelay!=0){$(imgContainer).removeClass('improvToggle');}
+            if(setLength>0){setLength--; ($('.setLength')[0].value) = setLength} //if setlength is >0, reduce it
+            if(setLength!=0){ //then if setlength is not 0, load normally
+                $('.timer').html("Resting...");
+                if(restDelay!=0){$(imgContainer).removeClass('improvToggle');} //remove blur to review the improv image unblurred if delay is greater than 0
+                $('.timer').addClass('timerRest');setTimeout(changeImage, (restDelay*1000));}
+            }if(setLength==0){startStudying();} //else end study mode
     }
 }
+
+//lol lmao
+function countupLazy(){
+        $('.countupToggle').toggleClass('dialogInactive');
+        countupMode = !countupMode;
+        if(countupMode==false){updateTimer(fullTimer);}
+        if(countupMode==true){updateTimer(countupTime);}
+}
+function countup(){countupTime++;updateTimer(countupTime);} //super lazy stopwatch that needs making not lazy
+
+//UI button handler
 function addStudyOption(studyName,isEnabled){
      $('.searchTermOptionContainer').append("<div class='searchTermOption'><input type='text' class='studyTopicOption' value='"+studyName+"' enabled='"+isEnabled+"'></input><div class='removeInput' title='Click to remove entry.'><p>-</p></div><div class='disableInput' title='Click to enable/disable entry.'><p>=</p></div></div>")
 }
 //solely so I can collapse this mess lol
+//includes hotkey watchers
 function embeds(){
     let splitTime;
     if(splitTimer){
@@ -280,6 +266,7 @@ function embeds(){
     }else{splitTime=fullTimer};
     let screaming;if(enabled){screaming='timerRunning'};
 $('body').append("<div class='timedBooruStudy'>\
+<div class='dummy'></div>\
 <div class='studyContainer "+screaming+"'>\
 <div class='timerContainer'>\
 <div class='timer'>"+splitTime+"</div>\
@@ -328,13 +315,14 @@ $('body').append("<div class='showHideStudy'><p>Enable Study Mode</p></div>");
 $('body').append("<style>.panicbutton{opacity:0;!important}</style>");
 $('body').append("<style class=''>\
 @import url('https://fonts.googleapis.com/css2?family=Righteous&display=swap');\
+.dummy{position:fixed;right:-100%;opacity:0;}\
 .studyModeActive .image-container{position:fixed;top:0!important;left:0;width:100vw;height:100vh!important;background:black;margin:0!important;z-index:100;}\
 .studyModeActive .image-container>picture{display:flex!important;width:100vw!important;height:100vh!important;}\
 .studyModeActive .image-container>picture>img{height:100%!important;width:100%!important;object-fit:contain!important;max-width:100%!important;max-height:100%!important;}\
 .studyModeActive #image-container.multiPartToggle>img, .image-container.multiPartToggle>picture{filter: grayscale(100%);}\
-.studyModeActive #image-container.improvToggle>img, .image-container.improvToggle>picture{filter:blur(20px);}\
-.studyModeActive #image-container.multiPartToggle.improvToggle>img, .image-container.multiPartToggle.improvToggle>picture{filter: grayscale(100%) blur(20px)!important;}\
-.horFlipped{transform:scaleX(-1);}\
+.studyModeActive #image-container.improvToggle>img, .image-container.improvToggle>picture{filter:blur(1cqmin);}\
+.studyModeActive #image-container.multiPartToggle.improvToggle>img, .image-container.multiPartToggle.improvToggle>picture{filter: grayscale(100%) blur(1cqmin)!important;}\
+.studyModeActive .horFlipped{transform:scaleX(-1);}\
 .timedBooruStudy{color:white;}\
 .studyModeActive #image-container{position:fixed;top:0;left:0;display:flex;width:100vw;height:100vh;background:black;justify-content:center;z-index:2;}\
 .image-container>img{max-height:100%;object-fit:contain;}\
@@ -347,10 +335,10 @@ input,textarea,select{color:#fff!important;}.timerContainer:has(.timerRest){bott
 //hotkeys
 $(document).bind('keydown', function(e) {
     if(e.keyCode==27){$('img').toggleClass('panicbutton');}
-    if(!$('input').is(':focus') && toggled){
+    if(!$('input').is(':focus') && toggled){ //prevent hotkeys is an input is focused
        if(e.keyCode=="49"){startStudying();}
        if(e.keyCode=="50"){changeImage(true);}
-       if(!enabled){
+       if(!enabled){ //doing these while enabled/running breaks stuff, so prevent it
        if(e.keyCode=="51"){multiPart=!multiPart; $('.multiPartMode').toggleClass('dialogInactive');}
        if(e.keyCode=="52"){improvPractice=!improvPractice; $('.improvMode').toggleClass('dialogInactive');}
        if(e.keyCode=="53"){randomFlip=!improvPractice; $('.randomHorizontal').toggleClass('dialogInactive');}
