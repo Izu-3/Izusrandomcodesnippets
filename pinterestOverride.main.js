@@ -4,7 +4,8 @@
 // @version      0.1
 // @description  try to take over the world!
 // @author       Iz
-// @match        https://www.pinterest.co*
+// @match        https://www.pinterest.com*
+// @match        https://www.pinterest.co.uk*
 // @require      https://code.jquery.com/jquery-3.6.0.min.js
 // @require     https://gist.github.com/raw/2625891/waitForKeyElements.js
 // @run-at      document-start
